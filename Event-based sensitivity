@@ -1,0 +1,220 @@
+#Parameters layer 1: Surface
+
+#Parameters layer 1: Surface
+from pyswmm import Simulation, Nodes, LidControls, Subcatchments
+from matplotlib.ticker import FormatStrFormatter
+import numpy as np
+import matplotlib.pyplot as plt
+import os 
+#os.chdir("C:/Users/mtorresc/Dropbox/UB- BSA-RENEW/Sensitivity Analysis")
+
+paso=300.0
+l_bound=[0.001,0.01,0]
+u_bound=[0.2,1.2,6]
+parametros = {
+        0: "Surface_roughness",
+        1: "Surface_slope",             #less than one percent
+        2: "Surface_thickness"
+}
+
+fig = plt.figure(num=None, figsize=(20,20), facecolor='w', edgecolor='k')
+
+for k in range(3):
+    #print(k)
+    #print('\n')
+    arr=[]
+    num=100                                                              
+    coef=np.linspace(l_bound[k],u_bound[k],num)                                             
+    #print('\n')
+    for i in range(num):
+        with Simulation('Parking20.inp') as sim:
+            sim.step_advance(paso)
+            permeable_pavement = LidControls(sim)["PP1"]
+            #permeable_pavement.soil.thickness = 5
+            #permeable_pavement.storage.thickness = 5
+            subcatch = Subcatchments(sim)["HStreet_E-MH-2013"]
+            outfall= Nodes(sim)["4113"] 
+            if k==0: permeable_pavement.surface.roughness = coef[i]
+            if k==1: permeable_pavement.surface.slope = coef[i] 
+            if k==2 : permeable_pavement.soil.thickness = 1
+            if k==2: permeable_pavement.surface.thickness = coef[i]
+
+            #Step through a simulation
+            total=0
+            for step in sim:
+                total=total+subcatch.runoff
+                #total=total+outfall.total_inflow
+                #f.write(str(outfall.total_inflow)+"\n")                    
+                #print(SC1.runoff)
+            #print(' \n')
+            #print('Outfall total inflow \n')
+            #print(float(total)*paso/(24*60*60))
+            arr.append(float(total)*1000000*paso/(24*60*60))
+            #f.close()                                                      
+       
+    f2 = open("param"+str(k)+".txt", "a")                                           
+                                   
+    for i in range(len(coef)):
+        f2.write(str(coef[i])+" "+str(arr[i])+"\n")                          
+    f2.close()
+
+    #print('-----------------')
+    ax = fig.add_subplot(4,4,k+1)
+    ax.scatter(coef,arr,c='b',marker='*')
+    ax.legend([parametros[k]],ncol=4,loc=1)
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    if k==0: ax.set_ylabel("Runoff (gal)",fontsize=12)
+    if k==7: ax.set(xlim=(8000, 13000))
+    ax.set_xlabel("Parameter values",fontsize=12)
+    
+fig.savefig('SurfParam_event.pdf')
+
+
+
+#Parameters layer 2: Pavement
+
+from pyswmm import Simulation, Nodes, LidControls, Subcatchments
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+import os 
+os.chdir("C:/Users/mtorresc/Dropbox/UB- BSA-RENEW/Sensitivity Analysis")
+
+parametros=8
+paso=300.0
+l_bound=[0.1,0.01,0,10]
+u_bound=[15,0.9,1,100]
+parametros = {
+        0: "Pavement thickness (in)",
+        1: "Pavement void (fraction)",
+        2: "Pavement impervious (fraction)",
+        3: "Pavement permeability (in/h)",
+        #4: "Clogging factor",
+}
+
+fig = plt.figure(num=None, figsize=(20,20), facecolor='w', edgecolor='k')
+for k in range(4):
+    #print(k)
+    #print('\n')
+    arr=[]
+    num=100                                                         
+    coef=np.linspace(l_bound[k],u_bound[k],num)                                             
+    #print('\n')
+    for i in range(num):
+        with Simulation('Parking20.inp') as sim:    
+            sim.step_advance(paso)
+            permeable_pavement = LidControls(sim)["PP1"]
+            #
+            #permeable_pavement.pavement.thickness = 5
+            
+            subcatch = Subcatchments(sim)["HStreet_E-MH-2013"]
+            outfall= Nodes(sim)["4113"] 
+            if k==0: permeable_pavement.pavement.thickness = coef[i]
+            if k==0 or k==1: permeable_pavement.soil.thickness = 1
+            if k==1: permeable_pavement.pavement.void_fraction = coef[i]  
+            if k==2: permeable_pavement.pavement.impervious_fraction = coef[i] #Doesn't change even with "extreme" thickness of the layers
+            if k==3: permeable_pavement.pavement.k_saturated = coef[i]  #Doesn't change even with "extreme" values of impervious fraction
+            if k==4: permeable_pavement.pavement.clog_factor = coef[i]  
+            
+            #Step through a simulation
+            total=0
+            for step in sim:
+                total=total+subcatch.runoff
+                #total=total+outfall.total_inflow
+                #f.write(str(outfall.total_inflow)+"\n")                    
+                #print(SC1.runoff)
+            #print(' \n')
+            #print('Outfall total inflow \n')
+            #print(float(total)*paso/(24*60*60))
+            arr.append(float(total)*1000000*paso/(24*60*60))
+            #f.close()                                                      
+       
+    f2 = open("param"+str(k)+".txt", "a")                                           
+                                   
+    for i in range(len(coef)):
+        f2.write(str(coef[i])+" "+str(arr[i])+"\n")                          
+    f2.close()
+    
+    ax = fig.add_subplot(4,4,k+1)
+    ax.scatter(coef,arr,c='b',marker='*')
+    ax.legend([parametros[k]],ncol=4,loc=1)
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    if k==0: ax.set_ylabel("Runoff (gal)",fontsize=12)
+    ax.set_xlabel("Parameter values",fontsize=12)
+    
+
+fig.savefig('PavementParam_event.pdf')
+    
+    
+    #Parameters layer 3: Soil
+
+from pyswmm import Simulation, Nodes, LidControls, Subcatchments
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
+import os 
+os.chdir("C:/Users/mtorresc/Dropbox/UB- BSA-RENEW/Sensitivity Analysis")
+
+parametros=8
+paso=300.0
+l_bound=[0,0.21,0.11,0.01,0.0001,10,2]
+u_bound=[20,0.99,0.45,0.19,10,60,13]
+parametros = {
+        0: "Soil_thickness",
+        1: "Soil_porosity",
+        2: "Soil_field_capacity",
+        3: "Soil_wilting_point",
+        4: "Conductivity",
+        5: "Conductivity slope",
+        6: "Soil suction head"
+}
+
+fig = plt.figure(num=None, figsize=(20,20), facecolor='w', edgecolor='k')
+for k in range(7):
+    #print(k)
+    #print('\n')
+    arr=[]
+    num=100                                                           
+    coef=np.linspace(l_bound[k],u_bound[k],num)                                             
+    #print('\n')
+    for i in range(num):
+        with Simulation('Parking20.inp') as sim:    
+            sim.step_advance(paso)
+            permeable_pavement = LidControls(sim)["PP1"]
+            subcatch_object = Subcatchments(sim)["HStreet_E-MH-2013"]
+            outfall= Nodes(sim)["4113"] 
+            if k==0: permeable_pavement.soil.thickness = coef[i]
+            if k==1: permeable_pavement.soil.porosity = coef[i]                                      
+            if k==2: permeable_pavement.soil.field_capacity = coef[i]
+            if k==3: permeable_pavement.soil.wilting_point = coef[i]
+            if k==4: permeable_pavement.soil.k_saturated = coef[i]
+            if k==5: permeable_pavement.soil.k_slope = coef[i]         
+            if k==6: permeable_pavement.soil.suction_head = coef[i]         
+            
+            #Step through a simulation
+            total=0
+            for step in sim:
+                total=total+outfall.total_inflow
+                #f.write(str(outfall.total_inflow)+"\n")                    
+                #print(SC1.runoff)
+            #print(' \n')
+            #print('Outfall total inflow \n')
+            #print(float(total)*paso/(24*60*60))
+            arr.append(float(total)*1000000*paso/(24*60*60))
+            #f.close()                                                      
+       
+    f2 = open("param"+str(k)+".txt", "a")                                           
+                                   
+    for i in range(len(coef)):
+        f2.write(str(coef[i])+" "+str(arr[i])+"\n")                          
+    f2.close()
+    
+    ax = fig.add_subplot(4,4,k+1)
+    ax.scatter(coef,arr,c='b',marker='*')
+    ax.legend([parametros[k]],ncol=4,loc=1)
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    if k==0 or k==4: ax.set_ylabel("Outfall (gal)",fontsize=12)
+    if k==4 or k==5 or k==6: ax.set_xlabel("Parameter values",fontsize=12)
+    
+fig.savefig('SoilParam.pdf')
+
